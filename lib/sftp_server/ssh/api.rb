@@ -26,6 +26,7 @@ module SFTPServer
 
       class Session < FFI::Struct
       end
+
       class Message < FFI::Struct
       end
 
@@ -970,6 +971,7 @@ module SFTPServer
       # LIBSSH_API void sftp_client_message_set_filename(sftp_client_message msg, const char *newname);
 
       # LIBSSH_API const char *sftp_client_message_get_data(sftp_client_message msg);
+      attach_function :sftp_client_message_get_data, [SFTPClientMessage], :pointer
 
       # LIBSSH_API uint32_t sftp_client_message_get_flags(sftp_client_message msg);
 
@@ -984,6 +986,7 @@ module SFTPServer
       attach_function :sftp_handle_alloc, [SFTPSession, :pointer], String
 
       # int sftp_reply_attr(sftp_client_message msg, sftp_attributes attr);
+      attach_function :sftp_reply_attr, [SFTPClientMessage, SFTPAttributes], :int
 
       # void *sftp_handle(sftp_session sftp, ssh_string handle);
       attach_function :sftp_handle, [SFTPSession, String], :pointer
@@ -998,6 +1001,7 @@ module SFTPServer
       attach_function :sftp_reply_names, [SFTPClientMessage], :int
 
       # int sftp_reply_data(sftp_client_message msg, const void *data, int len);
+      attach_function :sftp_reply_data, [SFTPClientMessage, :pointer, :int], :int
 
       # void sftp_handle_remove(sftp_session sftp, void *handle);
       #
@@ -1038,18 +1042,20 @@ module SFTPServer
       # /* sftp draft is completely braindead : version 3 and 4 have different flags for same constants */
       # /* and even worst, version 4 has same flag for 2 different constants */
       # /* follow up : i won't develop any sftp4 compliant library before having a clarification */
-      #
-      # #define SSH_FILEXFER_ATTR_SIZE 0x00000001
-      # #define SSH_FILEXFER_ATTR_PERMISSIONS 0x00000004
-      # #define SSH_FILEXFER_ATTR_ACCESSTIME 0x00000008
-      # #define SSH_FILEXFER_ATTR_ACMODTIME  0x00000008
-      # #define SSH_FILEXFER_ATTR_CREATETIME 0x00000010
-      # #define SSH_FILEXFER_ATTR_MODIFYTIME 0x00000020
-      # #define SSH_FILEXFER_ATTR_ACL 0x00000040
-      # #define SSH_FILEXFER_ATTR_OWNERGROUP 0x00000080
-      # #define SSH_FILEXFER_ATTR_SUBSECOND_TIMES 0x00000100
-      # #define SSH_FILEXFER_ATTR_EXTENDED 0x80000000
-      # #define SSH_FILEXFER_ATTR_UIDGID 0x00000002
+
+      module Attributes
+        SSH_FILEXFER_ATTR_SIZE = 0x00000001
+        SSH_FILEXFER_ATTR_PERMISSIONS = 0x00000004
+        SSH_FILEXFER_ATTR_ACCESSTIME = 0x00000008
+        SSH_FILEXFER_ATTR_ACMODTIME =  0x00000008
+        SSH_FILEXFER_ATTR_CREATETIME = 0x00000010
+        SSH_FILEXFER_ATTR_MODIFYTIME = 0x00000020
+        SSH_FILEXFER_ATTR_ACL = 0x00000040
+        SSH_FILEXFER_ATTR_OWNERGROUP = 0x00000080
+        SSH_FILEXFER_ATTR_SUBSECOND_TIMES = 0x00000100
+        SSH_FILEXFER_ATTR_EXTENDED = 0x80000000
+        SSH_FILEXFER_ATTR_UIDGID = 0x00000002
+      end
       #
       # /* types */
       # #define SSH_FILEXFER_TYPE_REGULAR 1
@@ -1098,13 +1104,15 @@ module SFTPServer
       # /** @} */
       #
       # /* file flags */
-      # #define SSH_FXF_READ 0x01
-      # #define SSH_FXF_WRITE 0x02
-      # #define SSH_FXF_APPEND 0x04
-      # #define SSH_FXF_CREAT 0x08
-      # #define SSH_FXF_TRUNC 0x10
-      # #define SSH_FXF_EXCL 0x20
-      # #define SSH_FXF_TEXT 0x40
+      module Flags
+        SSH_FXF_READ = 0x01
+        SSH_FXF_WRITE = 0x02
+        SSH_FXF_APPEND = 0x04
+        SSH_FXF_CREAT = 0x08
+        SSH_FXF_TRUNC = 0x10
+        SSH_FXF_EXCL = 0x20
+        SSH_FXF_TEXT = 0x40
+      end
       #
       # /* rename flags */
       # #define SSH_FXF_RENAME_OVERWRITE  0x00000001

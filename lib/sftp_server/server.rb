@@ -228,6 +228,126 @@ module SFTPServer
           @handles.delete(long_dir_name)
 
           SSH::API.sftp_reply_status(client_message, SSH::API::SFTPStatus::SSH_FX_OK, 'Success')
+        when SSH::API::SFTPCommands::SSH_FXP_LSTAT
+          puts 'lstat'
+
+          file_name = SSH::API.sftp_client_message_get_filename(client_message)
+          puts "file_name: #{file_name}"
+
+          long_file_name = File.expand_path(file_name)
+
+          file_stat = File.lstat(long_file_name)
+
+          attributes = SSH::API::SFTPAttributes.new
+
+          attributes[:flags] = 0
+          attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_SIZE
+          attributes[:size] = file_stat.size
+          attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_UIDGID
+          attributes[:uid] = file_stat.uid
+          attributes[:gid] = file_stat.gid
+          attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_PERMISSIONS
+          attributes[:permissions] = file_stat.mode
+          attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_ACMODTIME
+          attributes[:atime] = file_stat.atime.to_i
+          attributes[:mtime] = file_stat.mtime.to_i
+
+          SSH::API.sftp_reply_attr(client_message, attributes.to_ptr)
+        when SSH::API::SFTPCommands::SSH_FXP_STAT
+          puts 'stat'
+
+          file_name = SSH::API.sftp_client_message_get_filename(client_message)
+          puts "file_name: #{file_name}"
+
+          long_file_name = File.expand_path(file_name)
+
+          file_stat = File.stat(long_file_name)
+
+          attributes = SSH::API::SFTPAttributes.new
+
+          attributes[:flags] = 0
+          attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_SIZE
+          attributes[:size] = file_stat.size
+          attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_UIDGID
+          attributes[:uid] = file_stat.uid
+          attributes[:gid] = file_stat.gid
+          attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_PERMISSIONS
+          attributes[:permissions] = file_stat.mode
+          attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_ACMODTIME
+          attributes[:atime] = file_stat.atime.to_i
+          attributes[:mtime] = file_stat.mtime.to_i
+
+          SSH::API.sftp_reply_attr(client_message, attributes.to_ptr)
+        when SSH::API::SFTPCommands::SSH_FXP_OPEN
+          file_name = SSH::API.sftp_client_message_get_filename(client_message)
+          long_file_name = File.expand_path(file_name)
+          puts "long_file_name: #{long_file_name}"
+
+          client_message_data = SSH::API::SFTPClientMessage.new(client_message)
+          message_flags = client_message_data[:flags]
+          flags = 0
+          if (message_flags & SSH::API::Flags::SSH_FXF_READ) &&
+            (message_flags & SSH::API::Flags::SSH_FXF_WRITE)
+            flags = File::Constants::RDWR
+          elsif (message_flags & SSH::API::Flags::SSH_FXF_READ)
+            flags = File::Constants::RDONLY
+          elsif (message_flags & SSH::API::Flags::SSH_FXF_WRITE)
+            flags = File::Constants::WRONLY
+          end
+
+          if (message_flags & SSH::API::Flags::SSH_FXF_APPEND)
+            flags |= File::Constants::APPEND
+          end
+
+          if (message_flags & SSH::API::Flags::SSH_FXF_CREAT)
+            flags |= File::Constants::CREAT
+          end
+
+          if (message_flags & SSH::API::Flags::SSH_FXF_TRUNC)
+            flags |= File::Constants::TRUNC
+          end
+
+          if (message_flags & SSH::API::Flags::SSH_FXF_EXCL)
+            flags |= File::Constants::EXCL
+          end
+
+          @handles[long_file_name] = File.open(long_file_name, flags)
+
+          long_file_name_pointer = FFI::MemoryPointer.from_string(long_file_name)
+          handle = SSH::API.sftp_handle_alloc(sftp_session, long_file_name_pointer)
+
+          SSH::API.sftp_reply_handle(client_message, handle)
+        when SSH::API::SFTPCommands::SSH_FXP_READ
+          client_message_data = SSH::API::SFTPClientMessage.new(client_message)
+          handle = SSH::API.sftp_handle(sftp_session, client_message_data[:handle])
+          long_file_name = handle.read_string
+          puts "long_file_name: #{long_file_name}"
+
+          file = @handles[long_file_name]
+          if file
+            file.seek(client_message_data[:offset])
+            data = file.read(client_message_data[:len])
+            if data
+              buffer = FFI::MemoryPointer.new(:char, data.size)
+              buffer.put_bytes(0, data)
+              SSH::API.sftp_reply_data(client_message, buffer, data.size)
+            else
+              SSH::API.sftp_reply_status(client_message, SSH::API::SFTPStatus::SSH_FX_EOF, 'End-of-file encountered')
+            end
+          end
+        when SSH::API::SFTPCommands::SSH_FXP_WRITE
+          client_message_data = SSH::API::SFTPClientMessage.new(client_message)
+          handle = SSH::API.sftp_handle(sftp_session, client_message_data[:handle])
+          long_file_name = handle.read_string
+          puts "long_file_name: #{long_file_name}"
+
+          file = @handles[long_file_name]
+          if file
+            file.seek(client_message_data[:offset])
+            buffer = SSH::API.sftp_client_message_get_data(client_message)
+            file.write(buffer.read_string)
+            SSH::API.sftp_reply_status(client_message, SSH::API::SFTPStatus::SSH_FX_OK, 'Success')
+          end
         end
 
         SSH::API.sftp_client_message_free(client_message)
