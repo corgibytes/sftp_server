@@ -286,28 +286,28 @@ module SFTPServer
           client_message_data = SSH::API::SFTPClientMessage.new(client_message)
           message_flags = client_message_data[:flags]
           flags = 0
-          if (message_flags & SSH::API::Flags::SSH_FXF_READ) &&
-            (message_flags & SSH::API::Flags::SSH_FXF_WRITE)
+          if (message_flags & SSH::API::Flags::SSH_FXF_READ == SSH::API::Flags::SSH_FXF_READ) &&
+            (message_flags & SSH::API::Flags::SSH_FXF_WRITE == SSH::API::Flags::SSH_FXF_WRITE)
             flags = File::Constants::RDWR
-          elsif (message_flags & SSH::API::Flags::SSH_FXF_READ)
+          elsif (message_flags & SSH::API::Flags::SSH_FXF_READ == SSH::API::Flags::SSH_FXF_READ)
             flags = File::Constants::RDONLY
-          elsif (message_flags & SSH::API::Flags::SSH_FXF_WRITE)
+          elsif (message_flags & SSH::API::Flags::SSH_FXF_WRITE == SSH::API::Flags::SSH_FXF_WRITE)
             flags = File::Constants::WRONLY
           end
 
-          if (message_flags & SSH::API::Flags::SSH_FXF_APPEND)
+          if (message_flags & SSH::API::Flags::SSH_FXF_APPEND == SSH::API::Flags::SSH_FXF_APPEND)
             flags |= File::Constants::APPEND
           end
 
-          if (message_flags & SSH::API::Flags::SSH_FXF_CREAT)
+          if (message_flags & SSH::API::Flags::SSH_FXF_CREAT == SSH::API::Flags::SSH_FXF_CREAT)
             flags |= File::Constants::CREAT
           end
 
-          if (message_flags & SSH::API::Flags::SSH_FXF_TRUNC)
+          if (message_flags & SSH::API::Flags::SSH_FXF_TRUNC == SSH::API::Flags::SSH_FXF_TRUNC)
             flags |= File::Constants::TRUNC
           end
 
-          if (message_flags & SSH::API::Flags::SSH_FXF_EXCL)
+          if (message_flags & SSH::API::Flags::SSH_FXF_EXCL == SSH::API::Flags::SSH_FXF_EXCL)
             flags |= File::Constants::EXCL
           end
 
