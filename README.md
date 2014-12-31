@@ -6,6 +6,20 @@ Uses libssh via FFI to create an SFTP server. Useful for testing interactions wi
 
 ## Installation
 
+### Installing libssh
+
+This gem was developed against libssh 0.6.3. It will **not work** when using an older version.
+
+To install libssh using Homebrew on Mac OS X:
+
+```
+brew install libssh
+```
+
+To install on Ubuntu 12.04 or Ubuntu 14.04, you'll need to build the library from source, because the versions that are available in Ubuntu package repositories are too old.
+
+### Installing the gem
+
 Add this line to your application's Gemfile:
 
 ```ruby
