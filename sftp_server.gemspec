@@ -9,6 +9,7 @@ Gem::Specification.new do |spec|
   spec.authors       = ["M. Scott Ford"]
   spec.email         = ["scott@corgibytes.com"]
   spec.summary       = %q{A simple SFTP server for testing clients}
+  spec.description   = %q{Uses libssh via FFI to create an SFTP server. Useful for testing interactions with a remote SFTP server.}
   spec.homepage      = "https://github.com/corgibytes/sftp_server"
   spec.license       = "MIT"
 
