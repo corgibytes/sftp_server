@@ -11,6 +11,7 @@ module SFTPServer
     attr_accessor :dsa_key
     attr_accessor :port
     attr_accessor :listen_address
+    attr_accessor :verbose
 
     def initialize(options = {})
       @user_name = options[:user_name]
@@ -19,6 +20,7 @@ module SFTPServer
       @dsa_key = options[:dsa_key]
       @port = options[:port]
       @listen_address = options[:listen_address]
+      @verbose = options[:verbose]
 
       @authenticated = false
       @handles = {}
@@ -60,21 +62,21 @@ module SFTPServer
         message = SSH::API.ssh_message_get(session)
         if message
           message_type = SSH::API.ssh_message_type(message)
-          puts "open sftp session message_type: #{message_type}"
+          log "open sftp session message_type: #{message_type}"
           if message_type == SSH::API::MessageTypes::SSH_REQUEST_CHANNEL
             message_subtype = SSH::API.ssh_message_subtype(message)
-            puts "open sftp session message_subtype: #{message_subtype}"
+            log "open sftp session message_subtype: #{message_subtype}"
 
             case message_subtype
             when SSH::API::ChannelRequestTypes::SSH_CHANNEL_REQUEST_ENV
               env_name = SSH::API.ssh_message_channel_request_env_name(message)
-              puts "request env name: #{env_name}"
+              log "request env name: #{env_name}"
 
               env_value = SSH::API.ssh_message_channel_request_env_value(message)
-              puts "request env value: #{env_value}"
+              log "request env value: #{env_value}"
             when SSH::API::ChannelRequestTypes::SSH_CHANNEL_REQUEST_SUBSYSTEM
               subsystem_name = SSH::API.ssh_message_channel_request_subsystem(message)
-              puts "request subsystem: #{subsystem_name}"
+              log "request subsystem: #{subsystem_name}"
               if subsystem_name == 'sftp'
                 SSH::API.ssh_message_channel_request_reply_success(message)
                 sftp_channel_requested = true
@@ -91,6 +93,10 @@ module SFTPServer
       sftp_channel_requested
     end
 
+    def log(message)
+      puts(message) if verbose
+    end
+
     def open_channel(session)
       channel = nil
       while channel.nil?
@@ -98,13 +104,13 @@ module SFTPServer
         next unless message
 
         message_type = SSH::API.ssh_message_type(message)
-        puts "channel message_type: #{message_type}"
+        log "channel message_type: #{message_type}"
         next unless message_type > -1
 
         case message_type
         when SSH::API::MessageTypes::SSH_REQUEST_CHANNEL_OPEN
           message_subtype = SSH::API.ssh_message_subtype(message)
-          puts "channel message_subtype: #{message_subtype}"
+          log "channel message_subtype: #{message_subtype}"
           if message_subtype == SSH::API::ChannelTypes::SSH_CHANNEL_SESSION
             channel = SSH::API.ssh_message_channel_request_open_reply_accept(message)
             break
@@ -124,19 +130,20 @@ module SFTPServer
         next unless message
 
         message_type = SSH::API.ssh_message_type(message)
-        puts "message_type: #{message_type}"
+        log "message_type: #{message_type}"
         next unless message_type > -1
 
         case message_type
         when SSH::API::MessageTypes::SSH_REQUEST_AUTH
+          log "auth"
           message_subtype = SSH::API.ssh_message_subtype(message)
-          puts "auth message_subtype: #{message_subtype}"
+          log "auth message_subtype: #{message_subtype}"
           case message_subtype
           when SSH::API::MessageAuthTypes::SSH_AUTH_METHOD_PASSWORD
             request_user_name = SSH::API.ssh_message_auth_user(message)
             request_password = SSH::API.ssh_message_auth_password(message)
-            puts user_name
-            puts password
+            log user_name
+            log password
             if user_name == request_user_name && password == request_password
               SSH::API.ssh_message_auth_reply_success(message, 0)
               SSH::API.ssh_message_free(message)
@@ -164,30 +171,30 @@ module SFTPServer
     def sftp_message_loop(sftp_session)
       while true
         client_message = SSH::API.sftp_get_client_message(sftp_session)
-        puts "client_message: #{client_message}"
+        log "client_message: #{client_message}"
         return if client_message.null?
 
         client_message_type = SSH::API.sftp_client_message_get_type(client_message)
         next unless client_message_type
-        puts "client_message_type: #{client_message_type}"
+        log "client_message_type: #{client_message_type}"
 
         case client_message_type
         when SSH::API::SFTPCommands::SSH_FXP_REALPATH
-          puts "realpath"
+          log "realpath"
 
           file_name = SSH::API.sftp_client_message_get_filename(client_message)
-          puts "file_name: #{file_name}"
+          log "file_name: #{file_name}"
 
           long_file_name = File.expand_path(file_name)
 
           SSH::API.sftp_reply_names_add(client_message, long_file_name, long_file_name, SSH::API::SFTPAttributes.new.to_ptr)
           SSH::API.sftp_reply_names(client_message)
         when SSH::API::SFTPCommands::SSH_FXP_OPENDIR
-          puts "opendir"
+          log "opendir"
 
           dir_name = SSH::API.sftp_client_message_get_filename(client_message)
           long_dir_name = File.expand_path(dir_name)
-          puts "long_dir_name: #{long_dir_name}"
+          log "long_dir_name: #{long_dir_name}"
 
           @handles[long_dir_name] = :open
 
@@ -196,12 +203,12 @@ module SFTPServer
 
           SSH::API.sftp_reply_handle(client_message, handle)
         when SSH::API::SFTPCommands::SSH_FXP_READDIR
-          puts "readdir"
+          log "readdir"
 
           client_message_data = SSH::API::SFTPClientMessage.new(client_message)
           handle = SSH::API.sftp_handle(sftp_session, client_message_data[:handle])
           long_dir_name = handle.read_string
-          puts "long_dir_name: #{long_dir_name}"
+          log "long_dir_name: #{long_dir_name}"
 
           if @handles[long_dir_name] == :open
             Dir.entries(long_dir_name).each do |entry|
@@ -218,21 +225,21 @@ module SFTPServer
             SSH::API.sftp_reply_status(client_message, SSH::API::SFTPStatus::SSH_FX_EOF, 'End-of-file encountered')
           end
         when SSH::API::SFTPCommands::SSH_FXP_CLOSE
-          puts 'close'
+          log 'close'
 
           client_message_data = SSH::API::SFTPClientMessage.new(client_message)
           handle = SSH::API.sftp_handle(sftp_session, client_message_data[:handle])
           long_dir_name = handle.read_string
-          puts "long_dir_name: #{long_dir_name}"
+          log "long_dir_name: #{long_dir_name}"
 
           @handles.delete(long_dir_name)
 
           SSH::API.sftp_reply_status(client_message, SSH::API::SFTPStatus::SSH_FX_OK, 'Success')
         when SSH::API::SFTPCommands::SSH_FXP_LSTAT
-          puts 'lstat'
+          log 'lstat'
 
           file_name = SSH::API.sftp_client_message_get_filename(client_message)
-          puts "file_name: #{file_name}"
+          log "file_name: #{file_name}"
 
           long_file_name = File.expand_path(file_name)
 
@@ -254,10 +261,10 @@ module SFTPServer
 
           SSH::API.sftp_reply_attr(client_message, attributes.to_ptr)
         when SSH::API::SFTPCommands::SSH_FXP_STAT
-          puts 'stat'
+          log 'stat'
 
           file_name = SSH::API.sftp_client_message_get_filename(client_message)
-          puts "file_name: #{file_name}"
+          log "file_name: #{file_name}"
 
           long_file_name = File.expand_path(file_name)
 
@@ -279,9 +286,11 @@ module SFTPServer
 
           SSH::API.sftp_reply_attr(client_message, attributes.to_ptr)
         when SSH::API::SFTPCommands::SSH_FXP_OPEN
+          log 'open'
+
           file_name = SSH::API.sftp_client_message_get_filename(client_message)
           long_file_name = File.expand_path(file_name)
-          puts "long_file_name: #{long_file_name}"
+          log "long_file_name: #{long_file_name}"
 
           client_message_data = SSH::API::SFTPClientMessage.new(client_message)
           message_flags = client_message_data[:flags]
@@ -318,10 +327,12 @@ module SFTPServer
 
           SSH::API.sftp_reply_handle(client_message, handle)
         when SSH::API::SFTPCommands::SSH_FXP_READ
+          log 'read'
+
           client_message_data = SSH::API::SFTPClientMessage.new(client_message)
           handle = SSH::API.sftp_handle(sftp_session, client_message_data[:handle])
           long_file_name = handle.read_string
-          puts "long_file_name: #{long_file_name}"
+          log "long_file_name: #{long_file_name}"
 
           file = @handles[long_file_name]
           if file
@@ -336,10 +347,12 @@ module SFTPServer
             end
           end
         when SSH::API::SFTPCommands::SSH_FXP_WRITE
+          log 'write'
+
           client_message_data = SSH::API::SFTPClientMessage.new(client_message)
           handle = SSH::API.sftp_handle(sftp_session, client_message_data[:handle])
           long_file_name = handle.read_string
-          puts "long_file_name: #{long_file_name}"
+          log "long_file_name: #{long_file_name}"
 
           file = @handles[long_file_name]
           if file
