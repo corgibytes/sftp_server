@@ -110,6 +110,11 @@ module SFTPServer
       # LIBSSH_API const char *ssh_message_channel_request_subsystem(ssh_message msg);
       attach_function :ssh_message_channel_request_subsystem, [Message], :string
 
+      # LIBSSH_API int ssh_channel_close(ssh_channel channel);
+      attach_function :ssh_channel_close, [Channel], :int
+      # LIBSSH_API void ssh_channel_free(ssh_channel channel);
+      attach_function :ssh_channel_free, [Channel], :int
+
       # LIBSSH_API const char *ssh_message_channel_request_env_name(ssh_message msg);
       attach_function :ssh_message_channel_request_env_name, [Message], :string
       # LIBSSH_API const char *ssh_message_channel_request_env_value(ssh_message msg);

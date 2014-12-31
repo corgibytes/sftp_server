@@ -354,6 +354,26 @@ module SFTPServer
       end
     end
 
+    def close_channel(channel)
+      result = SSH::API.ssh_channel_close(channel)
+      fail SSH::API.ssh_get_error(channel) if result < 0
+    end
+
+    def free_channel(channel)
+      result = SSH::API.ssh_channel_free(channel)
+      fail SSH::API.ssh_get_error(channel) if result < 0
+    end
+
+    def disconnect_session(session)
+      result = SSH::API.ssh_disconnect(session)
+      fail SSH::API.ssh_get_error(session) if result < 0
+    end
+
+    def free_bind(bind)
+      result = SSH::API.ssh_bind_free(bind)
+      fail SSH::API.ssh_get_error(bind) if result < 0
+    end
+
     def open
       ssh_bind = SSH::API.ssh_bind_new
       session = SSH::API.ssh_new
@@ -376,6 +396,8 @@ module SFTPServer
             sftp_message_loop(sftp_session)
           end
         end
+        close_channel(channel)
+        free_channel(channel)
       end
     end
   end
