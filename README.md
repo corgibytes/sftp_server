@@ -1,6 +1,8 @@
 # SFTPServer
 
-A simple SFTP server for testing clients
+A simple SFTP server for testing clients:
+
+Uses libssh via FFI to create an SFTP server. Useful for testing interactions with a remote SFTP server.
 
 ## Installation
 
