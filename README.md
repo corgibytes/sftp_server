@@ -16,7 +16,7 @@ To install libssh using Homebrew on Mac OS X:
 brew install libssh
 ```
 
-To install on Ubuntu 12.04 or Ubuntu 14.04, you'll need to build the library from source, because the versions that are available in Ubuntu package repositories are too old.
+~~To install on Ubuntu 12.04 or Ubuntu 14.04, you'll need to build the library from source, because the versions that are available in Ubuntu package repositories are too old.~~ To work on Linux, [a patched version of libssh is required](https://github.com/corgibytes/sftp_server/issues/1). 
 
 ### Installing the gem
 
