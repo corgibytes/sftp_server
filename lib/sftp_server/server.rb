@@ -212,11 +212,27 @@ module SFTPServer
 
           if @handles[long_dir_name] == :open
             Dir.entries(long_dir_name).each do |entry|
+              file_stat = File.lstat(File.join(long_dir_name, entry))
+
+              attributes = SSH::API::SFTPAttributes.new
+
+              attributes[:flags] = 0
+              attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_SIZE
+              attributes[:size] = file_stat.size
+              attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_UIDGID
+              attributes[:uid] = file_stat.uid
+              attributes[:gid] = file_stat.gid
+              attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_PERMISSIONS
+              attributes[:permissions] = file_stat.mode
+              attributes[:flags] |= SSH::API::Attributes::SSH_FILEXFER_ATTR_ACMODTIME
+              attributes[:atime] = file_stat.atime.to_i
+              attributes[:mtime] = file_stat.mtime.to_i
+
               SSH::API.sftp_reply_names_add(
                 client_message,
                 entry,
                 entry,
-                SSH::API::SFTPAttributes.new.to_ptr
+                attributes.to_ptr
               )
             end
             @handles[long_dir_name] = :read
