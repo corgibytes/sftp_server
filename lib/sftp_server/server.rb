@@ -389,7 +389,6 @@ module SFTPServer
 
     def open
       ssh_bind = SSH::API.ssh_bind_new
-      session = SSH::API.ssh_new
 
       set_bind_option(ssh_bind, :int, SSH::API::BindOptions::SSH_BIND_OPTIONS_BINDADDR, :string, listen_address) if listen_address
       set_bind_option(ssh_bind, :int, SSH::API::BindOptions::SSH_BIND_OPTIONS_BINDPORT_STR, :string, port) if port
@@ -397,20 +396,23 @@ module SFTPServer
       set_bind_option(ssh_bind, :int, SSH::API::BindOptions::SSH_BIND_OPTIONS_DSAKEY, :string, dsa_key) if dsa_key
 
       bind_listen(ssh_bind)
-      bind_accept(ssh_bind, session)
-      handle_key_exchange(session)
+      loop do
+        session = SSH::API.ssh_new
+        bind_accept(ssh_bind, session)
+        handle_key_exchange(session)
 
-      if authenticate(session)
-        channel = open_channel(session)
-        if channel
-          if sftp_channel_request(session)
-            sftp_session = SSH::API.sftp_server_new(session, channel)
-            init_sftp_session(sftp_session)
-            sftp_message_loop(sftp_session)
+        if authenticate(session)
+          channel = open_channel(session)
+          if channel
+            if sftp_channel_request(session)
+              sftp_session = SSH::API.sftp_server_new(session, channel)
+              init_sftp_session(sftp_session)
+              sftp_message_loop(sftp_session)
+            end
           end
+          close_channel(channel)
+          free_channel(channel)
         end
-        close_channel(channel)
-        free_channel(channel)
       end
     end
   end
