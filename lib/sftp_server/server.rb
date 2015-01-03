@@ -382,6 +382,16 @@ module SFTPServer
             file.write(buffer.read_string)
             SSH::API.sftp_reply_status(client_message, SSH::API::SFTPStatus::SSH_FX_OK, 'Success')
           end
+        when SSH::API::SFTPCommands::SSH_FXP_REMOVE
+          log 'remove'
+
+          file_name = SSH::API.sftp_client_message_get_filename(client_message)
+          long_file_name = File.expand_path(file_name)
+          log "long_file_name: #{long_file_name}"
+
+          File.unlink(long_file_name)
+
+          SSH::API.sftp_reply_status(client_message, SSH::API::SFTPStatus::SSH_FX_OK, 'Success')
         end
 
         SSH::API.sftp_client_message_free(client_message)
