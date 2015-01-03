@@ -248,6 +248,11 @@ module SFTPServer
           long_dir_name = handle.read_string
           log "long_dir_name: #{long_dir_name}"
 
+          entry = @handles[long_dir_name]
+          if entry.respond_to?(:close)
+            entry.close
+          end
+
           @handles.delete(long_dir_name)
 
           SSH::API.sftp_reply_status(client_message, SSH::API::SFTPStatus::SSH_FX_OK, 'Success')
