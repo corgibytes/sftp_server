@@ -404,8 +404,20 @@ module SFTPServer
     end
 
     def free_channel(channel)
-      result = SSH::API.ssh_channel_free(channel)
-      fail SSH::API.ssh_get_error(channel) if result < 0
+      retries = 0
+
+      loop do
+        result = SSH::API.ssh_channel_free(channel)
+
+        if result >= 0
+          break
+        elsif retries >= 3
+          fail SSH::API.ssh_get_error(channel)
+        else
+          retries += 1
+          sleep 0.05
+        end
+      end
     end
 
     def disconnect_session(session)
