@@ -18,7 +18,7 @@ module SFTPServer
       @password = options[:password]
       @rsa_key = options[:rsa_key]
       @dsa_key = options[:dsa_key]
-      @port = options[:port]
+      @port = options[:port].to_s
       @listen_address = options[:listen_address]
       @verbose = options[:verbose]
 
