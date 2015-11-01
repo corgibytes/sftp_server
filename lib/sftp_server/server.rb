@@ -9,6 +9,7 @@ module SFTPServer
     attr_accessor :password
     attr_accessor :rsa_key
     attr_accessor :dsa_key
+    attr_accessor :authorized_keys
     attr_accessor :port
     attr_accessor :listen_address
     attr_accessor :verbose
@@ -16,6 +17,9 @@ module SFTPServer
     def initialize(options = {})
       @user_name = options[:user_name]
       @password = options[:password]
+      @authorized_keys = parse_authorized_keys(options[:authorized_keys])
+      path = options[:authorized_keys_file] and
+        @authorized_keys += parse_authorized_keys(File.readlines(path))
       @rsa_key = options[:rsa_key]
       @dsa_key = options[:dsa_key]
       @port = options[:port]
@@ -52,7 +56,8 @@ module SFTPServer
     end
 
     def respond_auth_required(message)
-      SSH::API.ssh_message_auth_set_methods(message, SSH::API::MessageAuthTypes::SSH_AUTH_METHOD_PASSWORD)
+      auth_types = SSH::API::MessageAuthTypes::SSH_AUTH_METHOD_PASSWORD | SSH::API::MessageAuthTypes::SSH_AUTH_METHOD_PUBLICKEY
+      SSH::API.ssh_message_auth_set_methods(message, auth_types)
       SSH::API.ssh_message_reply_default(message)
     end
 
@@ -142,8 +147,8 @@ module SFTPServer
           when SSH::API::MessageAuthTypes::SSH_AUTH_METHOD_PASSWORD
             request_user_name = SSH::API.ssh_message_auth_user(message)
             request_password = SSH::API.ssh_message_auth_password(message)
-            log user_name
-            log password
+            log "user: #{user_name}"
+            log "pass: #{password}"
             if user_name == request_user_name && password == request_password
               SSH::API.ssh_message_auth_reply_success(message, 0)
               SSH::API.ssh_message_free(message)
@@ -152,6 +157,22 @@ module SFTPServer
             else
               SSH::API.ssh_message_reply_default(message)
               next
+            end
+          when SSH::API::MessageAuthTypes::SSH_AUTH_METHOD_PUBLICKEY
+            request_user_name = SSH::API.ssh_message_auth_user(message)
+            public_key = SSH::API.ssh_message_auth_pubkey(message)
+            signature_state = SSH::API.ssh_message_auth_publickey_state(message)
+
+            authorized_key = authorized_keys.any? do |key|
+              SSH::API.ssh_key_cmp(key.read_pointer, public_key, 0) == 0
+            end
+
+            log "authorized key: #{authorized_key}"
+            log "signature state: #{signature_state}"
+            if (authenticated = authorized_key && signature_state == :valid)
+              SSH::API.ssh_message_auth_reply_success(message, 0)
+              SSH::API.ssh_message_free(message)
+              break
             end
           else
             respond_auth_required(message) unless @authenticated
@@ -430,6 +451,15 @@ module SFTPServer
       fail SSH::API.ssh_get_error(bind) if result < 0
     end
 
+    def free_authorized_keys
+      if @authorized_keys
+        @authorized_keys.each do |key|
+          SSH::API.ssh_key_free(key.read_pointer)
+        end
+        @authorized_keys.clear
+      end
+    end
+
     def open
       ssh_bind = SSH::API.ssh_bind_new
 
@@ -456,6 +486,19 @@ module SFTPServer
           close_channel(channel)
           free_channel(channel)
         end
+      end
+    end
+
+    private
+
+    def parse_authorized_keys(keys)
+      Array(keys).map do |key|
+        pointer = FFI::MemoryPointer.new(:pointer)
+        type, key, comment = *key.split[0..2]
+        type =~ /\Assh-(rsa|dss)\z/ or
+          raise "unsupported key type: #{type}"
+        SSH::API.ssh_pki_import_pubkey_base64(key, $1.to_sym, pointer)
+        pointer
       end
     end
   end
