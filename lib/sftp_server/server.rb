@@ -28,6 +28,7 @@ module SFTPServer
 
       @authenticated = false
       @handles = {}
+      ObjectSpace.define_finalizer(self, self.class.finalizer(@authorized_keys))
     end
 
     def set_bind_option(sshbind, key_type, key_value, value_type, value_value)
@@ -446,20 +447,6 @@ module SFTPServer
       fail SSH::API.ssh_get_error(session) if result < 0
     end
 
-    def free_bind(bind)
-      result = SSH::API.ssh_bind_free(bind)
-      fail SSH::API.ssh_get_error(bind) if result < 0
-    end
-
-    def free_authorized_keys
-      if @authorized_keys
-        @authorized_keys.each do |key|
-          SSH::API.ssh_key_free(key.read_pointer)
-        end
-        @authorized_keys.clear
-      end
-    end
-
     def open
       ssh_bind = SSH::API.ssh_bind_new
 
@@ -487,6 +474,8 @@ module SFTPServer
           free_channel(channel)
         end
       end
+    ensure
+      SSH::API.ssh_bind_free(ssh_bind) if ssh_bind
     end
 
     private
@@ -499,6 +488,17 @@ module SFTPServer
           raise "unsupported key type: #{type}"
         SSH::API.ssh_pki_import_pubkey_base64(key, $1.to_sym, pointer)
         pointer
+      end
+    end
+
+    def self.finalizer(keys)
+      lambda do |*|
+        begin
+          keys.each { |key| SSH::API.ssh_key_free(key.read_pointer) }
+        rescue Exception => error
+          STDERR.puts "#{error.class}: #{error.message}"
+          error.backtrace.each { |line| STDERR.puts "  #{line}" }
+        end
       end
     end
   end

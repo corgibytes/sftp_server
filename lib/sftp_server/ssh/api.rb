@@ -82,7 +82,7 @@ module SFTPServer
 
       attach_function :ssh_init, [], :int
       attach_function :ssh_bind_new, [], Bind
-      attach_function :ssh_bind_free, [Bind], :int
+      attach_function :ssh_bind_free, [Bind], :void
       attach_function :ssh_new, [], Session
       attach_function :ssh_bind_options_set, [Bind, :varargs], :int
       attach_function :ssh_options_set, [Bind, :varargs], :int
@@ -140,6 +140,7 @@ module SFTPServer
 
       attach_function :ssh_pki_import_pubkey_base64, [:string, :keytypes, :pointer], :int
       attach_function :ssh_key_cmp, [:pointer, :pointer, :keycmp], :int
+      attach_function :ssh_key_free, [:pointer], :void
 
       class SFTPSession < FFI::Struct
       end
