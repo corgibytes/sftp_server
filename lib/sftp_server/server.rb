@@ -174,6 +174,9 @@ module SFTPServer
               SSH::API.ssh_message_auth_reply_success(message, 0)
               SSH::API.ssh_message_free(message)
               break
+            elsif authorized_key
+              SSH::API.ssh_message_auth_reply_success(message, 1)
+              SSH::API.ssh_message_free(message)
             end
           else
             respond_auth_required(message) unless @authenticated
