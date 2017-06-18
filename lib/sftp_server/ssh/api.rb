@@ -76,9 +76,13 @@ module SFTPServer
         SSH_CHANNEL_REQUEST_X11 = 7
       end
 
+      PublicKeyState = enum(:error, -1, :none, :valid, :wrong)
+      enum :keycmp, [:public, 0, :private]
+      enum :keytypes, [:unknown, 0, :dss, :rsa, :rsa1, :ecdsa, :ed25519]
+
       attach_function :ssh_init, [], :int
       attach_function :ssh_bind_new, [], Bind
-      attach_function :ssh_bind_free, [Bind], :int
+      attach_function :ssh_bind_free, [Bind], :void
       attach_function :ssh_new, [], Session
       attach_function :ssh_bind_options_set, [Bind, :varargs], :int
       attach_function :ssh_options_set, [Bind, :varargs], :int
@@ -95,6 +99,8 @@ module SFTPServer
 
       attach_function	:ssh_message_auth_user, [:string], :string
       attach_function	:ssh_message_auth_password, [:string], :string
+      attach_function :ssh_message_auth_pubkey, [Message], :pointer
+      attach_function :ssh_message_auth_publickey_state, [Message], PublicKeyState
       attach_function :ssh_message_free, [Message], :int
       attach_function :ssh_message_auth_set_methods, [Message, :int], :int
       attach_function :ssh_message_reply_default, [Message], :int
@@ -131,6 +137,10 @@ module SFTPServer
       # typedef struct sftp_session_struct* sftp_session;
       # typedef struct sftp_status_message_struct* sftp_status_message;
       # typedef struct sftp_statvfs_struct* sftp_statvfs_t;
+
+      attach_function :ssh_pki_import_pubkey_base64, [:string, :keytypes, :pointer], :int
+      attach_function :ssh_key_cmp, [:pointer, :pointer, :keycmp], :int
+      attach_function :ssh_key_free, [:pointer], :void
 
       class SFTPSession < FFI::Struct
       end
