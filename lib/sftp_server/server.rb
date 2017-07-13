@@ -1,8 +1,6 @@
 require 'sftp_server/ssh/api'
 require 'sftp_server/c/api'
 
-require 'pry'
-
 module SFTPServer
   class Server
     attr_accessor :user_name
